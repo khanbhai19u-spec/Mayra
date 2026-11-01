@@ -19,10 +19,13 @@ jobs:
         env:
           CFG: ${{ secrets.FIREBASE_WEB_CONFIG }}
         run: printf 'export const firebaseConfig = %s;\n' "$CFG" > mayra/public/js/firebase-config.js
-      - name: Prepare service account
+      - name: Check service account key
         env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: echo "$SA" > "$RUNNER_TEMP/sa.json"
+        run: |
+          if [ -z "$SA" ]; then echo "ERROR: FIREBASE_SERVICE_ACCOUNT secret খালি বা নেই"; exit 1; fi
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          python -c "import json,sys;d=json.load(open(sys.argv[1]));print('OK project:',d.get('project_id'),'| type:',d.get('type'),'| has_key:',bool(d.get('private_key')))" "$RUNNER_TEMP/sa.json" || { echo "ERROR: JSON ঠিক নেই (পুরোটা কপি হয়নি)"; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: 20
