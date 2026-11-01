@@ -1,0 +1,34 @@
+name: Build and Deploy MAYRA
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Generate project from Bundel.text.py
+        run: python Bundel.text.py mayra
+      - name: Set Firebase project id
+        run: echo '{"projects":{"default":"mayra-abdea"}}' > mayra/.firebaserc
+      - name: Inject Firebase web config
+        env:
+          CFG: ${{ secrets.FIREBASE_WEB_CONFIG }}
+        run: printf 'export const firebaseConfig = %s;\n' "$CFG" > mayra/public/js/firebase-config.js
+      - name: Prepare service account
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: echo "$SA" > "$RUNNER_TEMP/sa.json"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm i -g firebase-tools
+      - name: Deploy hosting and database rules
+        working-directory: mayra
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: firebase deploy --only hosting,database --project mayra-abdea --non-interactive
